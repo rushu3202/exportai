@@ -1,0 +1,82 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Export-Doc AI — MVP</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 30px; max-width:700px; }
+    label { display:block; margin-top:10px; }
+    input, textarea { width:100%; padding:8px; margin-top:4px; }
+    button { margin-top: 12px; padding:10px 16px; }
+  </style>
+</head>
+<body>
+  <h2>Export-Doc AI — Generate Documents</h2>
+  <form id="exportForm">
+    <label>Seller name<input name="seller_name" required/></label>
+    <label>Seller address<textarea name="seller_address"></textarea></label>
+    <label>Buyer name<input name="buyer_name" required/></label>
+    <label>Buyer address<textarea name="buyer_address"></textarea></label>
+    <label>Product description<textarea name="product_description" required></textarea></label>
+    <label>Origin (city/state/country)<input name="origin"/></label>
+    <label>Destination (city/state/country)<input name="destination"/></label>
+    <label>Quantity<input name="quantity"/></label>
+    <label>Unit price<input name="unit_price"/></label>
+    <label>HS code<input name="hs_code"/></label>
+    <label>Incoterms<input name="incoterms" placeholder="e.g., FOB, CIF"/></label>
+    <button type="submit">Generate PDF</button>
+  </form>
+
+  <div id="status"></div>
+
+  <script>
+    const form = document.getElementById('exportForm');
+    const status = document.getElementById('status');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      status.textContent = 'Generating... this can take a few seconds.';
+      const fd = new FormData(form);
+      const data = {
+        seller: { name: fd.get('seller_name'), address: fd.get('seller_address') },
+        buyer: { name: fd.get('buyer_name'), address: fd.get('buyer_address') },
+        product_description: fd.get('product_description'),
+        origin: fd.get('origin'),
+        destination: fd.get('destination'),
+        quantity: fd.get('quantity'),
+        unit_price: fd.get('unit_price'),
+        hs_code: fd.get('hs_code'),
+        incoterms: fd.get('incoterms')
+      };
+
+      try {
+        const resp = await fetch('/generate-docs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+
+        if (!resp.ok) {
+          const err = await resp.json().catch(()=>null);
+          status.textContent = 'Error: ' + (err?.error || resp.statusText || 'Unknown error');
+          console.error('Server error:', err);
+          return;
+        }
+
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'export-docs.pdf';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        status.textContent = 'PDF downloaded.';
+      } catch (err) {
+        console.error(err);
+        status.textContent = 'Network error. See console.';
+      }
+    });
+  </script>
+</body>
+</html>
